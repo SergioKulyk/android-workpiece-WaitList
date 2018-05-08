@@ -12,11 +12,13 @@ import com.example.android.waitlist.data.TestUtil;
 import com.example.android.waitlist.data.WaitlistContract;
 import com.example.android.waitlist.data.WaitlistDbHelper;
 
+
 public class MainActivity extends AppCompatActivity {
 
     private GuestListAdapter mAdapter;
 
-    private SQLiteDatabase mDB;
+    private SQLiteDatabase mDb;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,17 +33,22 @@ public class MainActivity extends AppCompatActivity {
         // Set layout for the RecyclerView, because it's a list we are using the linear layout
         waitlistRecyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // Create an adapter for that cursor to display the data
 
-        WaitlistDbHelper mWaitlistDbHelper = new WaitlistDbHelper(this);
+        // Create a DB helper (this will create the DB if run for the first time)
+        WaitlistDbHelper dbHelper = new WaitlistDbHelper(this);
 
-        mDB = mWaitlistDbHelper.getWritableDatabase();
+        // Keep a reference to the mDb until paused or killed. Get a writable database
+        // because you will be adding restaurant customers
+        mDb = dbHelper.getWritableDatabase();
 
-        TestUtil.insertFakeData(mDB);
+        //Fill the database with fake data
+        TestUtil.insertFakeData(mDb);
 
+        // Get all guest info from the database and save in a cursor
         Cursor cursor = getAllGuests();
 
-        mAdapter = new GuestListAdapter(this, cursor.getCount());
+        // Create an adapter for that cursor to display the data
+        mAdapter = new GuestListAdapter(this, cursor);
 
         // Link the adapter to the RecyclerView
         waitlistRecyclerView.setAdapter(mAdapter);
@@ -57,9 +64,16 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    // TODO (5) Create a private method called getAllGuests that returns a cursor
+
+
+    /**
+     * Query the mDb and get all guests from the waitlist table
+     *
+     * @return Cursor containing the list of guests
+     */
     private Cursor getAllGuests() {
-        return mDB.query(WaitlistContract.WaitlistEntry.TABLE_NAME,
+        return mDb.query(
+                WaitlistContract.WaitlistEntry.TABLE_NAME,
                 null,
                 null,
                 null,
