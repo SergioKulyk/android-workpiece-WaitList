@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
@@ -17,13 +18,11 @@ import com.example.android.waitlist.data.WaitlistDbHelper;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String TAG = MainActivity.class.getSimpleName();
-
     private GuestListAdapter mAdapter;
     private SQLiteDatabase mDb;
-
     private EditText mNewGuestNameEditText;
-    private EditText mPartySizeEditText;
+    private EditText mNewPartySizeEditText;
+    private final static String LOG_TAG = MainActivity.class.getSimpleName();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,9 +33,8 @@ public class MainActivity extends AppCompatActivity {
 
         // Set local attributes to corresponding views
         waitlistRecyclerView = (RecyclerView) this.findViewById(R.id.all_guests_list_view);
-
-        mNewGuestNameEditText = (EditText) findViewById(R.id.person_name_edit_text);
-        mPartySizeEditText = (EditText) findViewById(R.id.party_count_edit_text);
+        mNewGuestNameEditText = (EditText) this.findViewById(R.id.person_name_edit_text);
+        mNewPartySizeEditText = (EditText) this.findViewById(R.id.party_count_edit_text);
 
         // Set layout for the RecyclerView, because it's a list we are using the linear layout
         waitlistRecyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -58,6 +56,19 @@ public class MainActivity extends AppCompatActivity {
         // Link the adapter to the RecyclerView
         waitlistRecyclerView.setAdapter(mAdapter);
 
+        new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+            @Override
+            public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
+                long id = (long) viewHolder.itemView.getTag();
+                removeGuest(id);
+                mAdapter.swapCursor(getAllGuests());
+            }
+        }).attachToRecyclerView(waitlistRecyclerView);
     }
 
     /**
@@ -67,25 +78,28 @@ public class MainActivity extends AppCompatActivity {
      */
     public void addToWaitlist(View view) {
         if (mNewGuestNameEditText.getText().length() == 0 ||
-            mPartySizeEditText.getText().length() == 0) {
+                mNewPartySizeEditText.getText().length() == 0) {
             return;
         }
-
+        //default party size to 1
         int partySize = 1;
-
         try {
-            partySize = Integer.parseInt(mPartySizeEditText.getText().toString());
-        } catch (NumberFormatException e) {
-            Log.e(TAG, e.getMessage());
+            //mNewPartyCountEditText inputType="number", so this should always work
+            partySize = Integer.parseInt(mNewPartySizeEditText.getText().toString());
+        } catch (NumberFormatException ex) {
+            Log.e(LOG_TAG, "Failed to parse party size text to number: " + ex.getMessage());
         }
 
-        addGuest(mNewGuestNameEditText.getText().toString(), partySize);
+        // Add guest info to mDb
+        addNewGuest(mNewGuestNameEditText.getText().toString(), partySize);
 
+        // Update the cursor in the adapter to trigger UI to display the new list
         mAdapter.swapCursor(getAllGuests());
 
-        mPartySizeEditText.clearFocus();
+        //clear UI text fields
+        mNewPartySizeEditText.clearFocus();
         mNewGuestNameEditText.getText().clear();
-        mPartySizeEditText.getText().clear();
+        mNewPartySizeEditText.getText().clear();
     }
 
 
@@ -107,10 +121,23 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
-    private long addGuest(String name, int partySize) {
+    /**
+     * Adds a new guest to the mDb including the party count and the current timestamp
+     *
+     * @param name  Guest's name
+     * @param partySize Number in party
+     * @return id of new record added
+     */
+    private long addNewGuest(String name, int partySize) {
         ContentValues cv = new ContentValues();
         cv.put(WaitlistContract.WaitlistEntry.COLUMN_GUEST_NAME, name);
         cv.put(WaitlistContract.WaitlistEntry.COLUMN_PARTY_SIZE, partySize);
         return mDb.insert(WaitlistContract.WaitlistEntry.TABLE_NAME, null, cv);
+    }
+
+
+    private boolean removeGuest(long id) {
+        return mDb.delete(WaitlistContract.WaitlistEntry.TABLE_NAME,
+                WaitlistContract.WaitlistEntry._ID + "=" + id, null) > 0;
     }
 }
