@@ -10,7 +10,7 @@ import com.example.android.waitlist.data.WaitlistContract.*;
 public class WaitlistDbHelper extends SQLiteOpenHelper {
 
     // The database name
-    private static final String DATABASE_NAME = "waitlist.db";
+    public static final String DATABASE_NAME = "waitlist.db";
 
     // If you change the database schema, you must increment the database version
     private static final int DATABASE_VERSION = 1;
